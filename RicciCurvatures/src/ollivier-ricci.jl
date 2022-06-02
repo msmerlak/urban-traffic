@@ -3,6 +3,7 @@ using Graphs
 using JuMP, GLPK #Gurobi
 using LinearAlgebra:normalize
 using Distributed:pmap
+using Suppressor
 
 # import JuMP.fix
 # function fix(C::Vector{VariableRef}, V::Vector{T}) where T <: Number
@@ -28,12 +29,7 @@ function W₁(μ₁::AbstractVector{T}, μ₂::AbstractVector{T}, model::Model) 
     @constraint(model, marginal1, vec(mapslices(sum, model[:coupling]; dims = 1)) .== μ₁)
     @constraint(model, marginal2, vec(mapslices(sum, model[:coupling]; dims = 2)) .== μ₂)
 
-    # fix(model.obj_dict[:marginal1], vec(mapslices(sum, model[:coupling]; dims = 1)) .== μ₁)
-    # fix(model.obj_dict[:marginal1], vec(mapslices(sum, model[:coupling]; dims = 2)) .== μ₂)
-
-    # @show FixRef.(model.obj_dict[:marginal1])
-    # println("-----------")
-    optimize!(model)
+    @suppress optimize!(model)
 
 
     return objective_value(model)
@@ -54,7 +50,7 @@ function κ(
 
 end
 
-function ollivier_ricci(g::Tg where Tg <: AbstractGraph, edges = Graphs.edges(g); parallel = true, optimizer = GLPK.Optimizer)
+function ollivier_ricci(g::Tg where Tg <: AbstractGraph, edges = Graphs.edges(g); parallel = false, optimizer = GLPK.Optimizer)
 
     n, _ = size(g)
     distances = floyd_warshall_shortest_paths(g).dists
@@ -62,14 +58,8 @@ function ollivier_ricci(g::Tg where Tg <: AbstractGraph, edges = Graphs.edges(g)
     model = Model(optimizer)
 
     @variable(model, coupling[1:n, 1:n] >= 0)
-
     @objective(model, Min, sum(coupling .* distances))
-
     @constraint(model, normalization, sum(coupling) == 1)
 
     return (parallel ? pmap : map)(e -> κ(g, e, distances, model), edges)
 end
-
-
-
-
