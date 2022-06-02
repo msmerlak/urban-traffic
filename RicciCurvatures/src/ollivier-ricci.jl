@@ -1,21 +1,40 @@
+
 using Graphs
 using JuMP, GLPK #Gurobi
+using LinearAlgebra:normalize
+using Distributed:pmap
 
-
-import JuMP.fix
-function fix(C::Vector{VariableRef}, V::Vector{T}) where T <: Number
-    @assert length(C) == length(V)
-    for i in 1:length(C)
-        fix(C[i], V[i])
-    end
-end
+# import JuMP.fix
+# function fix(C::Vector{VariableRef}, V::Vector{T}) where T <: Number
+#     @assert length(C) == length(V)
+#     for i in 1:length(C)
+#         fix(C[i], V[i])
+#     end
+# end
 
 function W₁(μ₁::AbstractVector{T}, μ₂::AbstractVector{T}, model::Model) where T <: Real
 
-    fix(model.obj_dict[:marginal1], μ₁)
-    fix(model.obj_dict[:marginal1], μ₂)
 
+    if haskey(model, :marginal1)
+        delete(model, model[:marginal1])
+        unregister(model, :marginal1)
+    end
+
+    if haskey(model, :marginal2)
+        delete(model, model[:marginal2])
+        unregister(model, :marginal2)
+    end
+
+    @constraint(model, marginal1, vec(mapslices(sum, model[:coupling]; dims = 1)) .== μ₁)
+    @constraint(model, marginal2, vec(mapslices(sum, model[:coupling]; dims = 2)) .== μ₂)
+
+    # fix(model.obj_dict[:marginal1], vec(mapslices(sum, model[:coupling]; dims = 1)) .== μ₁)
+    # fix(model.obj_dict[:marginal1], vec(mapslices(sum, model[:coupling]; dims = 2)) .== μ₂)
+
+    # @show FixRef.(model.obj_dict[:marginal1])
+    # println("-----------")
     optimize!(model)
+
 
     return objective_value(model)
 end
@@ -41,18 +60,14 @@ function ollivier_ricci(g::Tg where Tg <: AbstractGraph, edges = Graphs.edges(g)
     distances = floyd_warshall_shortest_paths(g).dists
 
     model = Model(optimizer)
-    
-    #set_optimizer_attribute(model, "OutputFlag", 0)
-        
+
     @variable(model, coupling[1:n, 1:n] >= 0)
-    @variable(model, marginal1[1:n])
-    @variable(model, marginal2[1:n])
 
     @objective(model, Min, sum(coupling .* distances))
 
     @constraint(model, normalization, sum(coupling) == 1)
 
-    return [κ(g, e, distances, model) for e ∈ edges]
+    return (parallel ? pmap : map)(e -> κ(g, e, distances, model), edges)
 end
 
 
