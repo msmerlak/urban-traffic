@@ -1,5 +1,5 @@
 module RicciCurvatures
-export ollivier_ricci
-include("ollivier-ricci.jl")
-
+export κ 
+#include("ollivier-ricci.jl")
+include("laplacian-ricci.jl")
 end # module

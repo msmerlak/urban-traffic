@@ -59,7 +59,7 @@ function ollivier_ricci(g::Tg where Tg <: AbstractGraph, edges = Graphs.edges(g)
 
     @variable(model, coupling[1:n, 1:n] >= 0)
     @objective(model, Min, sum(coupling .* distances))
-    @constraint(model, normalization, sum(coupling) == 1)
+    #@constraint(model, normalization, sum(coupling) == 1)
 
     return (parallel ? pmap : map)(e -> κ(g, e, distances, model), edges)
 end
