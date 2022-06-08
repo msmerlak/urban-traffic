@@ -1,27 +1,29 @@
 using Distributed
 using Graphs
 using JuMP, GLPK
+using Graphs.Parallel
 
 ∇(f, e::Te where Te <: AbstractEdge) = f[e.dst] - f[e.src]
 
 function κ(
     G::Tg where Tg <: AbstractGraph, 
-    e::Te where Te <: AbstractEdge; 
+    e::Te where Te <: AbstractEdge,
+    D::AbstractArray,
+    Δ::AbstractArray; 
     optimizer = GLPK.Optimizer
     )
 
     here = unique( [neighbors(G, e.src)..., neighbors(G, e.dst)...] )
-    n = length(here)
-    g, _ = induced_subgraph(G, here)
 
-    Δ = laplacian_matrix(g)
-    D = floyd_warshall_shortest_paths(squash(g)).dists
+    d = D[here, here]
+    δ = Δ[here, here]
+    
 
     model = Model(optimizer)
-    @variable(model, f[1:n])
-    @constraint(model, .- D .≤ [f[x] - f[y] for x ∈ 1:n, y ∈ 1:n] .≤ D)
+    @variable(model, f[here])
+    @constraint(model, .- d .≤ [f[x] - f[y] for x ∈ here, y ∈ here] .≤ d)
     @constraint(model, ∇(f, e) == 1)
-    @objective(model, Min, ∇(Δ * f, e))
+    @objective(model, Min, ∇(δ * f, e))
 
     optimize!(model)
 
@@ -36,6 +38,9 @@ function κ(
     parallel = false
     )
 
-    return (parallel ? pmap : map)(e -> κ(G, e; optimizer = optimizer), E)
+    Δ = laplacian_matrix(G)
+    D = (parallel ? Parallel : Graphs).floyd_warshall_shortest_paths(squash(G)).dists
+
+    return (parallel ? pmap : map)(e -> κ(G, e, D, Δ; optimizer = optimizer), E)
 
 end
