@@ -1,7 +1,7 @@
 using Distributed
 addprocs(Sys.CPU_THREADS)
 
-@everywhere begin 
+@everywhere begin
     using Pkg; Pkg.activate(".")
     using Test
     using RicciCurvatures
@@ -42,7 +42,5 @@ using BenchmarkTools
     G = Graphs.SimpleGraphs.erdos_renyi(50, 200)
     T_seq = @belapsed κ($G; parallel = false)
     T_par = @belapsed κ($G; parallel = true)
-    @test T_par < T_seq 
-    end
+    @test T_par < T_seq
 end
-
