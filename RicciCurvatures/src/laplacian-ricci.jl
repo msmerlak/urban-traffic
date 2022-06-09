@@ -20,8 +20,9 @@ function κ(
     here = unique( [neighbors(G, e.src)..., neighbors(G, e.dst)...] )
     n = length(here)
 
-    d = view(D, here, here)
-    δ = view(Δ, here, here)
+    d  = view(D, here, here)
+    δ  = view(Δ, here, here)
+    De = D[e.src,e.dst]
     
     model = Model(optimizer)
     @variable(model, f[1:n])
@@ -30,14 +31,14 @@ function κ(
     @constraint(model, .- d .≤ [f[x] - f[y] for x ∈ 1:n, y ∈ 1:n] .≤ d) 
 
     # ∇ₑf = 1
-    @constraint(model, ∇(f, e, here) == 1)
+    @constraint(model, ∇(f, e, here) == De)
     
     # inf ∇ₑΔf
     @objective(model, Min, ∇(δ * f, e, here))
 
     optimize!(model)
 
-    return objective_value(model)
+    return objective_value(model)/De
 
 end
 
