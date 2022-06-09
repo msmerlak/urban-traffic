@@ -1,6 +1,12 @@
-using Test
-using RicciCurvatures
-using Graphs
+using Distributed
+addprocs(Sys.CPU_THREADS)
+
+@everywhere begin 
+    using Pkg; Pkg.activate(".")
+    using Test
+    using RicciCurvatures
+    using Graphs
+end
 
 @testset "Hypercube graphs" begin
     K₂ = complete_graph(2)
@@ -27,6 +33,16 @@ end
         G = complete_graph(V)
         E = Int(V*(V-1)/2)
         @test κ(G) ≈ fill(V/(V-1), E)
+    end
+end
+
+using BenchmarkTools
+
+@testset "Parallel" begin
+    G = Graphs.SimpleGraphs.erdos_renyi(50, 200)
+    T_seq = @belapsed κ($G; parallel = false)
+    T_par = @belapsed κ($G; parallel = true)
+    @test T_par < T_seq 
     end
 end
 

@@ -16,7 +16,6 @@ function κ(
     here = unique( [neighbors(G, e.src)..., neighbors(G, e.dst)...] )
     n = length(here)
 
-
     d = D[here, here]
     δ = Δ[here, here]
     
@@ -42,7 +41,7 @@ function κ(
     )
 
     Δ = laplacian_matrix(G)./degree(G)
-    D = (parallel ? Parallel : Graphs).floyd_warshall_shortest_paths(squash(G)).dists
+    D = (parallel ? Graphs.Parallel : Graphs).floyd_warshall_shortest_paths(squash(G)).dists
 
     return (parallel ? pmap : map)(e -> κ(G, e, D, Δ; optimizer = optimizer), E)
 
